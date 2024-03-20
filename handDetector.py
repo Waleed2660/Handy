@@ -3,9 +3,11 @@ import mediapipe as mp
 import time
 import pyautogui
 import threading
+import time
 
 lmlist = []
 pinchFlag = False
+cursorFlag = True
 last_thumb_x = 0
 last_thumb_y = 0
 
@@ -67,70 +69,55 @@ def check_percentage_difference(x1, x2, y1, y2):
         return True, x_diff_percent, y_diff_percent
     else:
         return False, x_diff_percent, y_diff_percent
-    
-
-def moveCursor(lmlist, img):
-
-    # Get the dimensions of the frame
-    # height, width, _ = img.shape
-    # print(str(height) + " - " + str(width))
-    
-    global last_thumb_x, last_thumb_y, last_cursor_x, last_cursor_y
-
-    # Thumb location:
-    thumb_x = lmlist[4][1]
-    thumb_y = lmlist[4][2]
-
-    # indicates movement to left
-    if thumb_x < last_thumb_x:
-        thumb_x = -thumb_x
-
-    # indicates movement upwards
-    if thumb_y < last_thumb_y:
-        thumb_y = -thumb_y  
-
-    if last_thumb_x == 0 or last_thumb_y == 0:
-        last_thumb_x = thumb_x
-        last_thumb_y = thumb_y
-        return
-    
-    print("Here ---- ")
-    # Moouse:
-    # flag, cursorSpeed_x, cursorSpeed_y = check_percentage_difference(last_thumb_x, thumb_x, last_thumb_y, thumb_y)
-
-    # print("Speed X: " + str(cursorSpeed_x) + " , Y: " + str(cursorSpeed_y))
-
-    cursorSpeed_x=-5
-    cursorSpeed_y=-5
-
-    pyautogui.moveRel(xOffset=cursorSpeed_x, yOffset=cursorSpeed_y, duration=0.2)
-
-    # get last mouse position   
-    last_cursor_x = pyautogui.position().x
-    last_cursor_y = pyautogui.position().y
-    # print("Last Mouse => (" + str(last_cursor_x) + " , " + str(last_cursor_y) + ")")
-
-    last_thumb_x = thumb_x
-    last_thumb_y = thumb_y
 
 
 def moveCursorV2():
     print("Starting Mouse Mover")
-    while True:
+    global cursorFlag
+    while cursorFlag:
+        time.sleep(0.1)
         lmlist = getHandLocation()
         if len(lmlist) != 0:
             if isPinching():
+                print("Pinching")
                 x = lmlist[8][1]
                 y = lmlist[8][2]
 
                 screen_width, screen_height = pyautogui.size()
 
-                print("Screen: Width = " + str(screen_width) + " , Height = " + str(screen_height))
-                print("Thumb: x = " + str(x) + " , Y = " + str(y))
+                # print("Screen: Width = " + str(screen_width) + " , Height = " + str(screen_height))
+                # print("Thumb: x = " + str(x) + " , Y = " + str(y))
                 
                 if x <= screen_width and y <= screen_height:
                     pyautogui.moveTo(x, y)
         
+
+def moveCursorV3():
+    print("Starting Mouse Mover")
+    global last_thumb_x, last_thumb_y
+    global cursorFlag
+    while cursorFlag:
+        time.sleep(0.1)
+        lmlist = getHandLocation()
+        if len(lmlist) != 0:  # Assuming the thumb and finger are in the list
+             if isPinching():
+                thumb_x = lmlist[4][1]
+                thumb_y = lmlist[4][2]
+                finger_x = lmlist[8][1]
+                finger_y = lmlist[8][2]
+
+                # Calculate cursor movement based on thumb and finger positions
+                cursorSpeed_x = thumb_x - last_thumb_x
+                cursorSpeed_y = thumb_y - last_thumb_y
+
+                print("Cursor Velocity ~ x: % , y: %", cursorSpeed_x, cursorSpeed_y)
+
+                # Move the cursor relative to the current position
+                pyautogui.moveRel(xOffset=cursorSpeed_x, yOffset=cursorSpeed_y, duration=0.2)
+
+                # Update last thumb position for the next iteration
+                last_thumb_x = thumb_x
+                last_thumb_y = thumb_y
 
 
 def getHandLocation():
@@ -143,7 +130,7 @@ def isPinching():
 
 def main():
     print("Starting Hand Tracking")
-    global lmlist, pinchFlag
+    global lmlist, pinchFlag, cursorFlag
     pTime = 0
     cTime = 0
 
@@ -154,7 +141,7 @@ def main():
     # Get the screen resolution
     screen_width, screen_height = pyautogui.size()
 
-    cap = cv2.VideoCapture(webCam)
+    cap = cv2.VideoCapture(phoneCam)
     detector = handDetector()
 
     while True:
@@ -179,23 +166,28 @@ def main():
         fps = 1 / (cTime - pTime)
         pTime = cTime
 
-        cv2.putText(img, str(int(fps)), (10, 70), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 255), 3)
+        cv2.putText(img, "FPS: " + str(int(fps)), (10, 70), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 255), 3)
 
         cv2.imshow("Image", img)
-        cv2.waitKey(1)
 
         # Break the loop on pressing 'q' key
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            cursorFlag = False
+            return
 
 
 if __name__ == "__main__":
-
-    #  Create a new thread for cursor movement
-    cursor_thread = threading.Thread(target=moveCursorV2)
+    # Create a new thread for cursor movement
+    # cursor_thread = threading.Thread(target=moveCursorV2)
+    cursor_thread = threading.Thread(target=moveCursorV3)
     
     # Start the cursor thread
     cursor_thread.start()
     
     main()
+
+    # Wait for the thread to terminate
+    cursor_thread.join()
+
+    print("All threads stopped.")
     
