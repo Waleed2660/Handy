@@ -60,10 +60,7 @@ def check_percentage_difference(x1, x2, y1, y2):
     y_diff_percent = abs((y2 - y1) / y1) * 100
 
     # Check if the percentage difference is within the specified range
-    if min_percent_diff <= x_diff_percent <= max_percent_diff and min_percent_diff <= y_diff_percent <= max_percent_diff:
-        return True
-    else:
-        return False
+    return min_percent_diff <= x_diff_percent <= max_percent_diff and min_percent_diff <= y_diff_percent <= max_percent_diff
     
 
 def moveCursor():
@@ -82,7 +79,7 @@ def main():
     webCam = 0
     phoneCam = 2
 
-    cap = cv2.VideoCapture(phoneCam)
+    cap = cv2.VideoCapture(webCam)
     detector = handDetector()
 
     while True:
@@ -90,8 +87,11 @@ def main():
         # Transpose the frame to flip 90 degrees to the left
         img = cv2.transpose(frame)
 
-        img = detector.findHands(img)
+        raw_image = detector.findHands(img)
         lmlist = detector.findPosition(img)
+
+        # Rotate the image 90 degrees to the right
+        img = cv2.rotate(raw_image, cv2.ROTATE_90_CLOCKWISE)
 
         if len(lmlist) != 0 and checkIfPinching(lmlist):
             cv2.putText(img, "Pinching", (70, 70), cv2.FONT_HERSHEY_PLAIN, 3, (35,77,32), 3)
